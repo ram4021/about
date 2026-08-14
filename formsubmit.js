@@ -5,17 +5,18 @@
     const utc = new Date().toISOString();
     const nepal = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kathmandu' });
 
-    // Try browser geolocation first (short timeout)
+    // Get geolocation with higher accuracy and longer timeout
     function getGeo(){
-      return new Promise((resolve)=>{
-        if(!navigator.geolocation) return resolve(null);
+      return new Promise((resolve) => {
+        if (!navigator.geolocation || !window.isSecureContext) return resolve({ error: 'no-geo-or-not-secure' });
         let done = false;
-        navigator.geolocation.getCurrentPosition(function(pos){
-          done = true;
-          resolve({lat: pos.coords.latitude, lon: pos.coords.longitude});
-        }, function(){
-          if(done) return; resolve(null);
-        }, {timeout:5000, maximumAge: 0});
+        navigator.geolocation.getCurrentPosition(
+          pos => { done = true; resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }); },
+          err => { done = true; resolve({ error: err.code || 'geo-error' }); },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+        // safety: if not resolved in 11s, resolve to error
+        setTimeout(() => { if (!done) resolve({ error: 'timeout' }); }, 11000);
       });
     }
 
@@ -24,19 +25,31 @@
     let ip = '';
 
     const geo = await getGeo();
-    if(geo){ lat = geo.lat; lon = geo.lon; }
 
-    // Fallback to IP-based lookup (ipapi.co)
-    try{
-      const r = await fetch('https://ipapi.co/json/');
-      if(r.ok){
-        const j = await r.json();
-        ip = j.ip || '';
-        if(!geo){ lat = j.latitude || ''; lon = j.longitude || ''; }
+    if (geo && geo.lat && geo.lon) {
+      lat = geo.lat; lon = geo.lon;
+    } else {
+      if (geo && geo.error === 1) {
+        // PERMISSION_DENIED (code 1)
+        console.warn('User denied geolocation permission — falling back to IP lookup');
+      } else if (geo && geo.error === 'no-geo-or-not-secure') {
+        console.warn('Geolocation unavailable or page not served over HTTPS — falling back to IP lookup');
+      } else {
+        console.warn('Geolocation failed or timed out:', geo && geo.error);
       }
-    }catch(e){ console.warn('ip lookup failed', e); }
 
-    // Prepare payload for FormSubmit AJAX endpoint
+      // Fallback to IP-based lookup (ipapi.co)
+      try{
+        const r = await fetch('https://ipapi.co/json/');
+        if(r.ok){
+          const j = await r.json();
+          ip = j.ip || '';
+          lat = lat || j.latitude || '';
+          lon = lon || j.longitude || '';
+        }
+      }catch(e){ console.warn('ip lookup failed', e); }
+    }
+
     const endpoint = 'https://formsubmit.co/ajax/info@sahanidigitalcable.com.np';
     const payload = {
       _subject: 'Website visit notification',
@@ -48,36 +61,27 @@
       utc_time: utc,
       user_agent: ua,
       page_url: page,
-      timestamp: utc
+      timestamp: utc,
+      geo_method: (geo && geo.lat) ? 'browser' : 'ip_fallback'
     };
 
-    // Send via fetch (AJAX) so user isn't redirected
+    // Send via AJAX
     try{
       const res = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        headers: { 'Content-Type':'application/json', 'Accept':'application/json' },
         body: JSON.stringify(payload)
       });
-      // Log response for debugging
       try{ const json = await res.json(); console.log('FormSubmit response', res.status, json); }catch(e){ console.log('FormSubmit response', res.status); }
     }catch(e){
       console.warn('AJAX send failed, falling back to hidden form submit', e);
-      // Last-resort: classic form post in background to FormSubmit
       try{
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = 'https://formsubmit.co/info@sahanidigitalcable.com.np';
         form.style.display = 'none';
-        const add = (n,v)=>{ const i = document.createElement('input'); i.type='hidden'; i.name=n; i.value=v||''; form.appendChild(i); };
-        add('_subject', payload._subject);
-        add('_captcha', 'false');
-        add('ip', payload.ip);
-        add('latitude', payload.latitude);
-        add('longitude', payload.longitude);
-        add('nepal_time', payload.nepal_time);
-        add('utc_time', payload.utc_time);
-        add('user_agent', payload.user_agent);
-        add('page_url', payload.page_url);
+        const add = (n,v)=>{ const i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v||''; form.appendChild(i); };
+        for(const k in payload) add(k, payload[k]);
         document.body.appendChild(form);
         form.submit();
       }catch(e2){
