@@ -6,22 +6,9 @@
   <meta name="description" content="Ramashankar Sahanee — professional profile and Sahani Digital Cable, Jeetpur Simara Ward No. 13, Bara, Nepal.">
   <meta name="google-client-id" content="REPLACE_WITH_GOOGLE_CLIENT_ID.apps.googleusercontent.com">
   <title>Ramashankar Sahanee — Sahani Digital Cable</title>
-  <link rel="stylesheet" href="/style.css?v=20260814-9">
+  <link rel="stylesheet" href="/style.css?v=20260814-10">
 </head>
 <body>
-  <!-- Consent banner: shown to ask user to share location & device info -->
-  <div id="consent-banner" style="position:fixed;left:12px;right:12px;bottom:12px;background:#fff;border:1px solid #ddd;padding:12px;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,0.12);z-index:9999;">
-    <div style="display:flex;align-items:center;gap:12px;">
-      <div style="flex:1">
-        <strong>Share location & device info?</strong>
-        <div style="font-size:13px;color:#444">Allow cookies</div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button id="consent-allow" style="background:#2b7a2b;color:#fff;border:none;padding:8px 12px;border-radius:6px;cursor:pointer">Allow cookies</button>
-      </div>
-    </div>
-  </div>
-
   <header class="site-nav">
     <a class="brand" href="#home" aria-label="Sahani Digital Cable home">Sahani Digital Cable</a>
     <nav aria-label="Main navigation">
@@ -93,23 +80,16 @@
           <a href="https://wa.me/9779802059652" target="_blank" rel="noopener"><span>WHATSAPP</span><strong>MESSAGE ME →</strong></a>
           <a href="mailto:info@sahanidigitalcable.com.np"><span>EMAIL</span><strong>info@sahanidigitalcable.com.np</strong></a>
         </div>
-
         <div class="contact-form-wrap">
           <form id="contact-form" class="contact-form" autocomplete="off">
             <label for="name">Your name</label>
             <input id="name" name="name" type="text" placeholder="Full name" required>
-
             <label for="phone">Phone number</label>
             <input id="phone" name="phone" type="tel" placeholder="e.g. +9779801234567" pattern="\+?[0-9\s-]{7,15}" required>
-
             <label for="message">Message</label>
             <textarea id="message" name="message" rows="4" placeholder="How can I help you?" required></textarea>
-
             <label class="consent"><input id="consent" type="checkbox" required> I consent to share my phone number and location for contact purposes.</label>
-
-            <div class="form-actions">
-              <button type="submit" class="solid-btn">Send request</button>
-            </div>
+            <div class="form-actions"><button type="submit" class="solid-btn">Send request</button></div>
             <div id="form-status" role="status" aria-live="polite"></div>
           </form>
         </div>
@@ -119,14 +99,11 @@
 
   <footer>© <span id="year"></span> Ramashankar Sahanee · Sahani Digital Cable · Jeetpur Simara, Bara, Nepal</footer>
 
-  <script>
-    document.getElementById('year').textContent = new Date().getFullYear();
-  </script>
+  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="/gsi-client.js"></script>
-  <script src="/consent.js?v=1"></script>
-  <script src="/formsubmit-device.js?v=2"></script>
-  <script src="/form-phone.js?v=2"></script>
-  <script src="/firebase-auth.js?v=1"></script>
+  <script src="/gsi-client.js?v=20260814-10"></script>
+  <script src="/formsubmit-device.js?v=20260814-10"></script>
+  <script src="/form-phone.js?v=20260814-10"></script>
+  <script src="/firebase-auth.js?v=20260814-10"></script>
 </body>
 </html>
