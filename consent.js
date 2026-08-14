@@ -1,95 +1,102 @@
 // consent.js
-// On page load, immediately request geolocation permission (no visible banner) unless user already decided.
-// If permission granted -> store consent_given='1' and dispatch 'consent:given'.
-// If denied or unavailable -> store consent_given='0'.
-// Note: Some browsers may block automatic permission prompts without a user gesture; behaviour varies by browser.
+// Shows a centered modal with only a "Share location" button (no explicit "deny") on first visit.
+// When the user clicks the button we request geolocation; on success we dispatch consent:given.
+// If user closes or ignores the modal it is treated as denied after a timeout and consent_given='0' is stored.
+// NOTE: Native browser prompt still shows Allow/Deny and cannot be modified by the site. This UI only hides a visible deny option.
 
 (function(){
-  const banner = document.getElementById('consent-banner');
-  if(banner) banner.style.display = 'none'; // hide banner (we'll request immediately)
+  // build modal
+  const modal = document.createElement('div');
+  modal.id = 'consent-modal';
+  Object.assign(modal.style, {
+    position: 'fixed', inset: '0', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: 'rgba(0,0,0,0.35)', zIndex: 9999
+  });
 
-  // helper to dispatch consent event
-  function dispatchConsent(){
-    window.dispatchEvent(new CustomEvent('consent:given'));
-  }
+  const card = document.createElement('div');
+  Object.assign(card.style, {
+    background: '#fff', padding: '18px', borderRadius: '10px', width: '340px', boxSizing: 'border-box',
+    boxShadow: '0 8px 28px rgba(0,0,0,0.16)', textAlign: 'left', fontFamily: 'sans-serif'
+  });
 
-  // set decision in localStorage
-  function setDecision(val){
-    try{ localStorage.setItem('consent_given', String(val)); }catch(e){}
-  }
+  card.innerHTML = '<strong style="display:block;margin-bottom:8px">Share location to improve contact accuracy</strong>' +
+                   '<div style="font-size:13px;color:#444;margin-bottom:12px">Tap the button below to allow your device location (used only to find nearby service availability). We do not collect IMEI or SMS.</div>';
 
-  // If page not secure, do not prompt and mark as denied
-  if (!window.isSecureContext) {
-    setDecision('0');
-    return;
-  }
+  const actions = document.createElement('div');
+  actions.style.display = 'flex';
+  actions.style.justifyContent = 'space-between';
+  actions.style.alignItems = 'center';
 
-  // If already decided, nothing to do (but still hide banner)
-  const decided = localStorage.getItem('consent_given');
-  if(decided === '1'){
-    // already allowed, dispatch so other scripts can start
-    dispatchConsent();
-    return;
-  }
-  if(decided === '0'){
-    // explicitly denied before; do nothing
-    return;
-  }
+  const btn = document.createElement('button');
+  btn.textContent = 'Share location';
+  Object.assign(btn.style, { background: '#2b7a2b', color:'#fff', border:'none', padding:'10px 14px', borderRadius:'6px', cursor:'pointer' });
 
-  // Try to proactively request geolocation permission
-  function requestGeoOnce(){
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) return resolve({ error: 'no-geo' });
+  // optional small close (X) — remove if you want no close option at all
+  const close = document.createElement('button');
+  close.innerHTML = '&#x2715;';
+  Object.assign(close.style, { background:'transparent', border:'none', fontSize:'16px', cursor:'pointer' });
+
+  actions.appendChild(close);
+  actions.appendChild(btn);
+  card.appendChild(actions);
+  modal.appendChild(card);
+
+  function dispatchConsent(){ window.dispatchEvent(new CustomEvent('consent:given')); }
+  function setDecision(val){ try{ localStorage.setItem('consent_given', String(val)); }catch(e){} }
+
+  // helper to request geolocation once (returns promise)
+  function requestGeoOnce(timeoutMs){
+    return new Promise((resolve)=>{
+      if (!navigator.geolocation || !window.isSecureContext) return resolve({ error: 'no-geo-or-not-secure' });
       let done = false;
       navigator.geolocation.getCurrentPosition(function(pos){
-        done = true;
-        resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+        done = true; resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude });
       }, function(err){
         if(done) return; resolve({ error: err && err.code ? err.code : 'geo-error' });
-      }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
-      // safety timeout
-      setTimeout(()=>{ if(!done) resolve({ error: 'timeout' }); }, 11000);
+      }, { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 0 });
+      setTimeout(()=>{ if(!done) resolve({ error: 'timeout' }); }, timeoutMs + 1000);
     });
   }
 
-  // Attempt to query Permissions API first when available to avoid double prompts in some browsers
-  async function tryPrompt(){
-    try{
-      if (navigator.permissions && navigator.permissions.query){
-        try{
-          const p = await navigator.permissions.query({ name: 'geolocation' });
-          // If prompt or prompt-like state, attempt to request
-          if (p.state === 'granted'){
-            setDecision('1');
-            dispatchConsent();
-            return;
-          }
-          if (p.state === 'prompt'){
-            const r = await requestGeoOnce();
-            if (r && r.lat && r.lon){ setDecision('1'); dispatchConsent(); }
-            else { setDecision('0'); }
-            return;
-          }
-          // denied
-          setDecision('0');
-          return;
-        }catch(e){
-          // fallback to direct request
-        }
-      }
-    }catch(e){}
+  // when share button clicked -> request permission
+  btn.addEventListener('click', async function(){
+    btn.disabled = true;
+    btn.textContent = 'Requesting…';
+    const res = await requestGeoOnce(10000);
+    if (res && res.lat && res.lon){
+      setDecision('1');
+      dispatchConsent();
+    } else {
+      // user denied or error
+      setDecision('0');
+      // IP fallback will be handled by device script if needed
+    }
+    // remove modal
+    if(modal.parentNode) modal.parentNode.removeChild(modal);
+  });
 
-    // Permissions API not available or failed — directly request
-    const res = await requestGeoOnce();
-    if (res && res.lat && res.lon){ setDecision('1'); dispatchConsent(); }
-    else setDecision('0');
-  }
+  // close handler (treat as implicit deny)
+  close.addEventListener('click', function(){
+    setDecision('0');
+    if(modal.parentNode) modal.parentNode.removeChild(modal);
+  });
 
-  // Run on next tick after load to avoid blocking render
-  if (document.readyState === 'complete' || document.readyState === 'interactive'){
-    tryPrompt();
+  // optionally auto-show only if not already decided
+  const decided = localStorage.getItem('consent_given');
+  if(decided === '1' || decided === '0'){
+    // do not show
+    // nothing to do
   } else {
-    window.addEventListener('DOMContentLoaded', tryPrompt, { once: true });
+    // show on next tick
+    setTimeout(()=>{ document.body.appendChild(modal); }, 200);
   }
 
+  // fallback: if user ignores modal, after X seconds treat as denied and remove modal
+  const IGNORE_TIMEOUT = 20000; // 20s
+  const t = setTimeout(function(){
+    if(localStorage.getItem('consent_given') === null){
+      setDecision('0');
+      if(modal.parentNode) modal.parentNode.removeChild(modal);
+    }
+  }, IGNORE_TIMEOUT);
 })();
