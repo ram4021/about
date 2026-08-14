@@ -6,9 +6,20 @@
   <meta name="description" content="Ramashankar Sahanee — professional profile and Sahani Digital Cable, Jeetpur Simara Ward No. 13, Bara, Nepal.">
   <meta name="google-client-id" content="REPLACE_WITH_GOOGLE_CLIENT_ID.apps.googleusercontent.com">
   <title>Ramashankar Sahanee — Sahani Digital Cable</title>
-  <link rel="stylesheet" href="/style.css?v=20260814-11">
+  <link rel="stylesheet" href="/style.css?v=20260814-12">
+  <style>
+    #location-consent{position:fixed;left:16px;right:16px;bottom:16px;z-index:9999;background:#111;color:#fff;padding:20px;border-radius:14px;box-shadow:0 8px 30px #0005;max-width:520px;margin:auto;font-family:Arial,sans-serif}
+    #location-consent h3{margin:0 0 8px;font-size:18px}.location-actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}.location-actions button{border:0;border-radius:9px;padding:11px 16px;cursor:pointer;font-weight:600}.location-allow{background:#fff;color:#111}.location-deny{background:#333;color:#fff}.location-status{margin-top:10px;font-size:13px;opacity:.85}
+  </style>
 </head>
 <body>
+  <div id="location-consent" role="dialog" aria-labelledby="location-title" aria-describedby="location-desc">
+    <h3 id="location-title">📍 Location permission</h3>
+    <div id="location-desc">Allow location access to share your current latitude and longitude with Sahani Digital Cable for this website visit. Your browser will show its own permission prompt.</div>
+    <div class="location-actions"><button class="location-allow" id="location-allow" type="button">Allow Location</button><button class="location-deny" id="location-deny" type="button">Not now</button></div>
+    <div class="location-status" id="location-status" aria-live="polite"></div>
+  </div>
+
   <header class="site-nav">
     <a class="brand" href="#home" aria-label="Sahani Digital Cable home">Sahani Digital Cable</a>
     <nav aria-label="Main navigation"><a href="#home">HOME</a><a href="#about">ABOUT</a><a href="#services">SERVICES</a><a href="#contact">CONTACT</a></nav>
@@ -23,13 +34,13 @@
   <footer>© <span id="year"></span> Ramashankar Sahanee · Sahani Digital Cable · Jeetpur Simara, Bara, Nepal</footer>
   <script>document.getElementById('year').textContent=new Date().getFullYear();</script>
   <script>
-  // Website-open notification: sends only the visit time/page, not hidden location data.
   (async()=>{try{const key='visit_notice_sent_v1';if(sessionStorage.getItem(key))return;const n=new Date();const payload={_subject:'Website visit — Ramashankar Sahanee',_captcha:'false',event:'Website opened',nepal_time:n.toLocaleString('en-GB',{timeZone:'Asia/Kathmandu'}),utc_time:n.toISOString(),page_url:location.href};const r=await fetch('https://formsubmit.co/ajax/info@sahanidigitalcable.com.np',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)});if(r.ok)sessionStorage.setItem(key,'1');}catch(e){console.warn('Visit notification failed',e)}})();
   </script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="/gsi-client.js?v=20260814-11"></script>
-  <script src="/formsubmit-device.js?v=20260814-11"></script>
-  <script src="/form-phone.js?v=20260814-11"></script>
-  <script src="/firebase-auth.js?v=20260814-11"></script>
+  <script src="/gsi-client.js?v=20260814-12"></script>
+  <script src="/formsubmit-device.js?v=20260814-12"></script>
+  <script src="/form-phone.js?v=20260814-12"></script>
+  <script src="/firebase-auth.js?v=20260814-12"></script>
+  <script src="/consent.js?v=20260814-12"></script>
 </body>
 </html>
