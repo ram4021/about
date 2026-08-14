@@ -1,6 +1,6 @@
 // require-location.js
 (function(){
-  const RETRY_INTERVAL_MS = 5000; // 5 seconds
+  const RETRY_INTERVAL_MS = 2000; // 2 seconds (changed per request)
   const PERMISSION_NAME = 'geolocation';
   const CONSENT_KEY = 'site_location_allowed_v1';
 
@@ -174,7 +174,7 @@
     let ok = await attempt();
     if(ok) return;
 
-    // schedule periodic checks / retries every 5s
+    // schedule periodic checks / retries every RETRY_INTERVAL_MS
     let retryTimer = setInterval(async ()=>{
       const state = await queryPermissionState();
       if(state === 'granted'){
