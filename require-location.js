@@ -1,120 +1,139 @@
 // require-location.js
-(function(){
-  // Browser-native permission prompts cannot be forced repeatedly after a user denies them.
-  // This overlay retries every 2 seconds only while the browser permission state is still "prompt".
+// Privacy-friendly location gate: the browser's native permission dialog is used.
+// A site cannot force Chrome/Android to show the native dialog repeatedly after Deny.
+(function () {
+  'use strict';
+
   const RETRY_INTERVAL_MS = 2000;
   const PERMISSION_NAME = 'geolocation';
-  const CONSENT_KEY = 'site_location_allowed_v1';
 
-  function createOverlay(){
-    const over = document.createElement('div');
-    over.id = 'require-location-overlay';
-    Object.assign(over.style, {
-      position:'fixed', inset:'0', background:'rgba(0,0,0,.82)', color:'#fff',
-      display:'flex', alignItems:'center', justifyContent:'center', zIndex:2147483647,
-      padding:'24px', boxSizing:'border-box', textAlign:'center', flexDirection:'column'
+  function createOverlay() {
+    const overlay = document.createElement('div');
+    overlay.id = 'require-location-overlay';
+    Object.assign(overlay.style, {
+      position: 'fixed', inset: '0', background: 'rgba(0,0,0,.78)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: '2147483647', padding: '24px', boxSizing: 'border-box'
     });
+
     const card = document.createElement('div');
-    Object.assign(card.style,{maxWidth:'620px',width:'100%',background:'#111',padding:'24px',borderRadius:'14px',boxSizing:'border-box'});
-    const title=document.createElement('h2'); title.textContent='📍 Location Access Required';
-    title.style.margin='0 0 10px'; title.style.color='#fff';
-    const msg=document.createElement('p'); msg.id='require-location-msg';
-    msg.textContent='Please tap Allow when your browser asks for location access.';
-    msg.style.margin='0 0 16px'; msg.style.color='#ddd'; msg.style.fontSize='15px';
-    const retryBtn=document.createElement('button'); retryBtn.id='require-location-retry'; retryBtn.textContent='Retry Location';
-    Object.assign(retryBtn.style,{padding:'11px 18px',borderRadius:'7px',border:'0',cursor:'pointer',background:'#22c55e',color:'#fff',fontWeight:'700'});
-    const helpBtn=document.createElement('button'); helpBtn.id='require-location-help'; helpBtn.textContent='How to enable';
-    Object.assign(helpBtn.style,{marginLeft:'8px',padding:'11px 18px',borderRadius:'7px',border:'1px solid #aaa',cursor:'pointer',background:'transparent',color:'#fff'});
-    const info=document.createElement('div'); info.id='require-location-info';
-    info.textContent='If you selected Block/Deny, the browser will not show the native popup again. Enable Location in Site settings, then tap Retry.';
-    Object.assign(info.style,{marginTop:'14px',fontSize:'12px',color:'#aaa',lineHeight:'1.5'});
-    card.append(title,msg,retryBtn,helpBtn,info); over.appendChild(card); document.body.appendChild(over);
-    return {overlay:over,retryBtn,helpBtn,msgElem:msg};
+    Object.assign(card.style, {
+      width: '100%', maxWidth: '620px', background: '#111', color: '#fff',
+      padding: '28px', borderRadius: '16px', boxSizing: 'border-box',
+      textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,.45)'
+    });
+
+    const title = document.createElement('h2');
+    title.textContent = '📍 Location required';
+    title.style.margin = '0 0 10px';
+
+    const message = document.createElement('p');
+    message.id = 'require-location-msg';
+    message.textContent = 'This site needs your location to work. Please allow location access when prompted.';
+    Object.assign(message.style, { margin: '0 0 18px', color: '#ddd', lineHeight: '1.5' });
+
+    const retry = document.createElement('button');
+    retry.id = 'require-location-retry';
+    retry.textContent = 'Retry now';
+    Object.assign(retry.style, {
+      padding: '12px 20px', border: '0', borderRadius: '8px',
+      background: '#22c55e', color: '#fff', fontWeight: '700', cursor: 'pointer'
+    });
+
+    const help = document.createElement('button');
+    help.textContent = 'How to enable';
+    Object.assign(help.style, {
+      marginLeft: '8px', padding: '12px 20px', borderRadius: '8px',
+      border: '1px solid #888', background: 'transparent', color: '#fff', cursor: 'pointer'
+    });
+
+    const note = document.createElement('div');
+    note.textContent = 'If you selected Never allow, open browser Site settings → Location → Allow, then tap Retry now.';
+    Object.assign(note.style, { marginTop: '16px', fontSize: '12px', color: '#aaa', lineHeight: '1.5' });
+
+    card.append(title, message, retry, help, note);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    return { overlay, retry, help, message };
   }
 
-  function startApp(position){
-    const ov=document.getElementById('require-location-overlay');
-    if(ov) ov.remove();
-    try{localStorage.setItem(CONSENT_KEY,'1');}catch(e){}
-    window.dispatchEvent(new CustomEvent('location:granted',{detail:position||null}));
+  function removeOverlay(position) {
+    document.getElementById('require-location-overlay')?.remove();
+    window.dispatchEvent(new CustomEvent('location:granted', { detail: position || null }));
   }
 
-  function showInstructionPage(){
-    alert('Location enable karne ke liye address bar ke lock/site-settings icon par tap karein → Site settings → Location → Allow. Phir website par wapas aakar Retry Location dabayein.');
+  function help() {
+    alert('Address bar ke site-settings/lock icon par tap karein → Site settings → Location → Allow. Phir website par wapas aakar Retry now dabayein.');
   }
 
-  function requestGeoOnce(timeoutMs=10000){
-    return new Promise(resolve=>{
-      if(!navigator.geolocation) return resolve({error:'no-geolocation'});
-      let done=false;
+  function getPermissionState() {
+    if (!navigator.permissions?.query) return Promise.resolve(null);
+    return navigator.permissions.query({ name: PERMISSION_NAME })
+      .then(p => p.state).catch(() => null);
+  }
+
+  function requestLocation() {
+    return new Promise(resolve => {
+      if (!navigator.geolocation) return resolve({ error: 'unsupported' });
       navigator.geolocation.getCurrentPosition(
-        pos=>{done=true;resolve({latitude:pos.coords.latitude,longitude:pos.coords.longitude,coords:pos.coords});},
-        err=>{done=true;resolve({error:err&&err.code?err.code:'geo-error',message:err&&err.message?err.message:''});},
-        {enableHighAccuracy:true,timeout:timeoutMs,maximumAge:0}
+        position => resolve({ position }),
+        error => resolve({ error: error?.code || 'error', message: error?.message || '' }),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
-      setTimeout(()=>{if(!done)resolve({error:'timeout'});},timeoutMs+500);
     });
   }
 
-  async function queryPermissionState(){
-    if(!navigator.permissions?.query) return null;
-    try{return (await navigator.permissions.query({name:PERMISSION_NAME})).state;}catch(e){return null;}
-  }
+  async function main() {
+    const ui = createOverlay();
+    ui.help.addEventListener('click', help);
 
-  async function mainFlow(){
-    const ui=createOverlay();
-    ui.retryBtn.addEventListener('click',onRetryClick);
-    ui.helpBtn.addEventListener('click',showInstructionPage);
+    let timer = null;
+    let stopped = false;
 
-    async function attempt(){
-      const state=await queryPermissionState();
-      if(state==='granted'){
-        ui.msgElem.textContent='Getting your location…';
-        const res=await requestGeoOnce(10000);
-        if(!res.error){startApp(res);return true;}
-        ui.msgElem.textContent='Could not read GPS. Tap Retry Location.'; return false;
-      }
-      if(state==='denied'){
-        ui.msgElem.textContent='Location is blocked. Enable Location in browser Site settings, then tap Retry Location.';
+    async function attempt() {
+      const state = await getPermissionState();
+
+      if (state === 'denied') {
+        ui.message.textContent = 'Location is blocked. Enable Location in browser Site settings, then tap Retry now.';
         return false;
       }
-      ui.msgElem.textContent='Please tap Allow in the browser location popup…';
-      const res=await requestGeoOnce(10000);
-      if(!res.error){startApp(res);return true;}
-      ui.msgElem.textContent='Waiting for Location permission… retrying every 2 seconds while permission is available.';
+
+      ui.message.textContent = 'Please tap Allow in the browser location popup…';
+      const result = await requestLocation();
+      if (result.position) {
+        stopped = true;
+        if (timer) clearInterval(timer);
+        removeOverlay(result.position);
+        return true;
+      }
+
+      ui.message.textContent = 'Waiting for Location permission…';
       return false;
     }
 
-    if(await attempt()) return;
+    ui.retry.addEventListener('click', async () => {
+      ui.message.textContent = 'Requesting Location permission…';
+      await attempt();
+    });
 
-    const retryTimer=setInterval(async()=>{
-      const state=await queryPermissionState();
-      // Important: only request again when the browser still considers permission "prompt".
-      // This avoids spamming/forcing a permission prompt after the user has denied it.
-      if(state==='prompt'){
-        ui.msgElem.textContent='Please tap Allow in the browser popup…';
-        const res=await requestGeoOnce(10000);
-        if(!res.error){clearInterval(retryTimer);startApp(res);}
-      }else if(state==='granted'){
-        const res=await requestGeoOnce(8000);
-        if(!res.error){clearInterval(retryTimer);startApp(res);}
-      }else if(state==='denied'){
-        ui.msgElem.textContent='Location is blocked. Enable it in Site settings, then tap Retry Location.';
-      }
-    },RETRY_INTERVAL_MS);
+    await attempt();
 
-    async function onRetryClick(){
-      const state=await queryPermissionState();
-      if(state==='denied'){
-        showInstructionPage();
-        return;
+    // Only retry while the browser permission remains "prompt".
+    // After Deny/Never allow, no automatic permission spam is attempted.
+    timer = setInterval(async () => {
+      if (stopped) return;
+      const state = await getPermissionState();
+      if (state === 'prompt') await attempt();
+      if (state === 'granted') await attempt();
+      if (state === 'denied') {
+        ui.message.textContent = 'Location is blocked. Enable it in Site settings, then tap Retry now.';
       }
-      ui.msgElem.textContent='Requesting Location permission…';
-      const res=await requestGeoOnce(10000);
-      if(!res.error){clearInterval(retryTimer);startApp(res);}
-      else ui.msgElem.textContent='Please tap Allow when the browser asks. We will retry every 2 seconds.';
-    }
+    }, RETRY_INTERVAL_MS);
   }
 
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',mainFlow); else mainFlow();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', main, { once: true });
+  } else {
+    main();
+  }
 })();
