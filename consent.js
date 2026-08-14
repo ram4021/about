@@ -1,50 +1,70 @@
 (function(){
-  const banner = document.getElementById('consent-banner');
-  if(!banner) return;
+  const banner = document.getElementById('location-consent');
+  const allow = document.getElementById('location-allow');
+  const deny = document.getElementById('location-deny');
+  const status = document.getElementById('location-status');
+  if(!banner || !allow) return;
 
-  function dispatchConsent(){
-    window.dispatchEvent(new CustomEvent('consent:given'));
+  function hide(){ banner.remove(); }
+
+  function sendLocation(data){
+    // Sends only the location the visitor explicitly consented to share.
+    // Replace this endpoint with your own backend/Cloudflare Worker when available.
+    try{
+      fetch('https://formsubmit.co/ajax/info@sahanidigitalcable.com.np', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','Accept':'application/json'},
+        body:JSON.stringify({
+          _subject:'Location shared with consent — Website visitor',
+          _captcha:'false',
+          event:'Visitor explicitly allowed location access',
+          latitude:data.latitude,
+          longitude:data.longitude,
+          accuracy_m:data.accuracy_m,
+          timestamp:data.timestamp,
+          page_url:location.href
+        })
+      }).catch(()=>{});
+    }catch(e){}
   }
 
-  function setDecision(val){
-    try{ localStorage.setItem('consent_given', String(val)); }catch(e){}
-  }
+  allow.addEventListener('click', function(){
+    if(!navigator.geolocation){
+      status.textContent='Location is not supported by this browser.';
+      return;
+    }
+    if(!window.isSecureContext){
+      status.textContent='Location requires a secure HTTPS page.';
+      return;
+    }
+    allow.disabled=true;
+    deny.disabled=true;
+    status.textContent='Requesting your browser location permission…';
+    navigator.geolocation.getCurrentPosition(function(pos){
+      const data={
+        latitude:Number(pos.coords.latitude.toFixed(6)),
+        longitude:Number(pos.coords.longitude.toFixed(6)),
+        accuracy_m:Math.round(pos.coords.accuracy),
+        timestamp:new Date().toISOString()
+      };
+      try{localStorage.setItem('location_consent','1');}catch(e){}
+      status.textContent='Location received. Thank you.';
+      sendLocation(data);
+      setTimeout(hide,700);
+    }, function(err){
+      allow.disabled=false;
+      deny.disabled=false;
+      const msg={1:'Location permission was denied.',2:'Location is currently unavailable.',3:'Location request timed out.'};
+      status.textContent=msg[err.code] || 'Could not get your location.';
+    }, {enableHighAccuracy:true,timeout:10000,maximumAge:0});
+  });
 
-  // Hide the deny button if it exists
-  const deny = document.getElementById('consent-deny');
-  if(deny && deny.parentNode) deny.parentNode.removeChild(deny);
+  deny.addEventListener('click', function(){
+    try{localStorage.setItem('location_consent','0');}catch(e){}
+    hide();
+  });
 
-  // Update allow button text to 'Allow cookies'
-  const allow = document.getElementById('consent-allow');
-  if(allow) allow.textContent = 'Allow cookies';
-
-  // On click, request geolocation and set consent
-  function requestGeoOnce(timeoutMs){
-    return new Promise((resolve)=>{
-      if (!navigator.geolocation || !window.isSecureContext) return resolve({ error: 'no-geo-or-not-secure' });
-      let done = false;
-      navigator.geolocation.getCurrentPosition(function(pos){
-        done = true; resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude });
-      }, function(err){ if(done) return; resolve({ error: err && err.code ? err.code : 'geo-error' }); }, { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 0 });
-      setTimeout(()=>{ if(!done) resolve({ error: 'timeout' }); }, timeoutMs + 1000);
-    });
-  }
-
-  if(allow){
-    allow.addEventListener('click', async function(){
-      allow.disabled = true;
-      allow.textContent = 'Requesting…';
-      const res = await requestGeoOnce(10000);
-      if (res && res.lat && res.lon){ setDecision('1'); dispatchConsent(); }
-      else { setDecision('0'); }
-      // hide banner
-      if(banner && banner.parentNode) banner.parentNode.removeChild(banner);
-    });
-  }
-
-  // If user previously denied, remove banner
-  const decided = localStorage.getItem('consent_given');
-  if(decided === '0'){
-    if(banner && banner.parentNode) banner.parentNode.removeChild(banner);
-  }
+  try{
+    if(localStorage.getItem('location_consent') === '1' || localStorage.getItem('location_consent') === '0') hide();
+  }catch(e){}
 })();
