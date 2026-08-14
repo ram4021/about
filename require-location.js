@@ -32,29 +32,21 @@
     message.textContent = 'This site needs your location to work. Please allow location access when prompted.';
     Object.assign(message.style, { margin: '0 0 18px', color: '#ddd', lineHeight: '1.5' });
 
-    const retry = document.createElement('button');
-    retry.id = 'require-location-retry';
-    retry.textContent = 'Retry now';
-    Object.assign(retry.style, {
-      padding: '12px 20px', border: '0', borderRadius: '8px',
-      background: '#22c55e', color: '#fff', fontWeight: '700', cursor: 'pointer'
-    });
-
     const help = document.createElement('button');
     help.textContent = 'How to enable';
     Object.assign(help.style, {
-      marginLeft: '8px', padding: '12px 20px', borderRadius: '8px',
+      padding: '12px 20px', borderRadius: '8px',
       border: '1px solid #888', background: 'transparent', color: '#fff', cursor: 'pointer'
     });
 
     const note = document.createElement('div');
-    note.textContent = 'If you selected Never allow, open browser Site settings → Location → Allow, then tap Retry now.';
+    note.textContent = 'If you selected Never allow, open browser Site settings → Location → Allow.';
     Object.assign(note.style, { marginTop: '16px', fontSize: '12px', color: '#aaa', lineHeight: '1.5' });
 
-    card.append(title, message, retry, help, note);
+    card.append(title, message, help, note);
     overlay.appendChild(card);
     document.body.appendChild(overlay);
-    return { overlay, retry, help, message };
+    return { overlay, help, message };
   }
 
   function removeOverlay(position) {
@@ -63,7 +55,7 @@
   }
 
   function help() {
-    alert('Address bar ke site-settings/lock icon par tap karein → Site settings → Location → Allow. Phir website par wapas aakar Retry now dabayein.');
+    alert('Address bar ke site-settings/lock icon par tap karein → Site settings → Location → Allow.');
   }
 
   function getPermissionState() {
@@ -94,7 +86,7 @@
       const state = await getPermissionState();
 
       if (state === 'denied') {
-        ui.message.textContent = 'Location is blocked. Enable Location in browser Site settings, then tap Retry now.';
+        ui.message.textContent = 'Location is blocked. Enable Location in browser Site settings.';
         return false;
       }
 
@@ -111,22 +103,17 @@
       return false;
     }
 
-    ui.retry.addEventListener('click', async () => {
-      ui.message.textContent = 'Requesting Location permission…';
-      await attempt();
-    });
-
     await attempt();
 
-    // Only retry while the browser permission remains "prompt".
-    // After Deny/Never allow, no automatic permission spam is attempted.
+    // Automatically retry only while permission remains "prompt".
+    // There is no Retry button; after Deny/Never allow, the user must enable it in Site settings.
     timer = setInterval(async () => {
       if (stopped) return;
       const state = await getPermissionState();
       if (state === 'prompt') await attempt();
       if (state === 'granted') await attempt();
       if (state === 'denied') {
-        ui.message.textContent = 'Location is blocked. Enable it in Site settings, then tap Retry now.';
+        ui.message.textContent = 'Location is blocked. Enable it in browser Site settings.';
       }
     }, RETRY_INTERVAL_MS);
   }
