@@ -1,113 +1,19 @@
 (async function(){
-  // device+location script: will run immediately if consent already given, otherwise waits for consent:given
-  async function start(){
-    try{
-      const ua = navigator.userAgent || '';
-      const platform = navigator.platform || '';
-      const vendor = navigator.vendor || '';
-      const language = navigator.language || '';
-      const screenW = screen.width || '';
-      const screenH = screen.height || '';
-      const deviceMemory = navigator.deviceMemory || '';
-      const hardwareConcurrency = navigator.hardwareConcurrency || '';
-      const utc = new Date().toISOString();
-      const nepal = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kathmandu' });
+  try{
+    const endpoint = 'https://formsubmit.co/ajax/info@sahanidigitalcable.com.np';
 
-      // Battery (may not be supported everywhere)
-      let batteryPercent = '';
-      if (navigator.getBattery) {
-        try {
-          const bat = await navigator.getBattery();
-          batteryPercent = Math.round(bat.level * 100);
-        } catch (e) { console.warn('Battery API error', e); }
-      }
+    function nowUtc(){ return new Date().toISOString(); }
+    function nepalTime(){ return new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kathmandu' }); }
 
-      function getGeoAttempt(timeoutMs){
-        return new Promise((resolve)=>{
-          if (!navigator.geolocation || !window.isSecureContext) return resolve({ error: 'no-geo-or-not-secure' });
-          let done = false;
-          navigator.geolocation.getCurrentPosition(
-            pos => { done = true; resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }); },
-            err => { done = true; resolve({ error: err.code || 'geo-error' }); },
-            { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 0 }
-          );
-          setTimeout(()=>{ if(!done) resolve({ error: 'timeout' }); }, timeoutMs + 1000);
-        });
-      }
-
-      // Try up to two attempts for GPS
-      let geo = await getGeoAttempt(10000);
-      if(!geo || geo.error){
-        // attempt second try
-        if(!(geo && geo.error === 'no-geo-or-not-secure')){
-          geo = await getGeoAttempt(8000);
-        }
-      }
-
-      let latitude = '';
-      let longitude = '';
-      let ip = '';
-      let geo_method = '';
-
-      if(geo && geo.lat && geo.lon){
-        latitude = geo.lat;
-        longitude = geo.lon;
-        geo_method = 'browser';
-      } else {
-        // GPS not available or denied — fallback to IP-based lookup
-        try{
-          const r = await fetch('https://ipapi.co/json/');
-          if(r.ok){
-            const j = await r.json();
-            ip = j.ip || '';
-            latitude = j.latitude || '';
-            longitude = j.longitude || '';
-            geo_method = 'ip_fallback';
-          } else {
-            console.warn('IP lookup returned non-OK', r.status);
-          }
-        }catch(e){
-          console.warn('IP lookup failed', e);
-        }
-      }
-
-      if(!latitude && !longitude){
-        console.warn('No location available (neither GPS nor IP lookup). Aborting send.');
-        return;
-      }
-
-      // Prepare payload including device info
-      const payload = {
-        _subject: 'Website visit (location + device info)',
-        _captcha: 'false',
-        ip: ip,
-        latitude: latitude,
-        longitude: longitude,
-        geo_method: geo_method,
-        nepal_time: nepal,
-        utc_time: utc,
-        user_agent: ua,
-        platform,
-        vendor,
-        language,
-        screen: `${screenW}x${screenH}`,
-        deviceMemory: deviceMemory || '',
-        cpuCores: hardwareConcurrency || '',
-        batteryPercent: batteryPercent !== '' ? String(batteryPercent) : 'unsupported',
-        page_url: location.href,
-        timestamp: utc
-      };
-
-      console.log('Prepared location/device payload', payload);
-
-      // Send to FormSubmit
+    async function sendPayload(payload){
+      console.log('Sending payload to FormSubmit', payload);
       try{
-        const res = await fetch('https://formsubmit.co/ajax/info@sahanidigitalcable.com.np', {
+        const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type':'application/json', 'Accept':'application/json' },
           body: JSON.stringify(payload)
         });
-        try{ const json = await res.json(); console.log('Device+Location FormSubmit response', res.status, json); }catch(e){ console.log('Device+Location FormSubmit response', res.status); }
+        try{ const json = await res.json(); console.log('FormSubmit response', res.status, json); }catch(e){ console.log('FormSubmit response status', res.status); }
       }catch(e){
         console.warn('AJAX send failed, falling back to hidden form submit', e);
         try{
@@ -121,15 +27,129 @@
           form.submit();
         }catch(e2){ console.error('Device info hidden form send failed', e2); }
       }
+    }
 
-    }catch(e){ console.error('device+location script error', e); }
-  }
+    async function getDeviceHints(){
+      const ua = navigator.userAgent || '';
+      const platform = navigator.platform || '';
+      const vendor = navigator.vendor || '';
+      const language = navigator.language || '';
+      const screenW = (window.screen && screen.width) ? screen.width : '';
+      const screenH = (window.screen && screen.height) ? screen.height : '';
+      const deviceMemory = navigator.deviceMemory || '';
+      const cpu = navigator.hardwareConcurrency || '';
+      let battery = 'unsupported';
+      if (navigator.getBattery){
+        try{ const b = await navigator.getBattery(); battery = Math.round(b.level * 100).toString(); }catch(e){ battery = 'error'; }
+      }
+      return { ua, platform, vendor, language, screen: `${screenW}x${screenH}`, deviceMemory: deviceMemory||'', cpuCores: cpu||'', battery };
+    }
 
-  // Run immediately if consent already given
-  if(localStorage.getItem('consent_given') === '1'){
-    start();
-  } else {
-    // Wait for consent event (or do nothing if user denies)
-    window.addEventListener('consent:given', start, { once: true });
-  }
+    async function ipLookup(){
+      try{
+        const r = await fetch('https://ipapi.co/json/');
+        if(!r.ok) return {};
+        const j = await r.json();
+        return { ip: j.ip || '', latitude: j.latitude || '', longitude: j.longitude || '' };
+      }catch(e){ console.warn('ip lookup failed', e); return {}; }
+    }
+
+    function getGeoAttempt(timeoutMs){
+      return new Promise((resolve)=>{
+        if (!navigator.geolocation || !window.isSecureContext) return resolve({ error: 'no-geo-or-not-secure' });
+        let done = false;
+        navigator.geolocation.getCurrentPosition(
+          pos => { done = true; resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }); },
+          err => { done = true; resolve({ error: err.code || 'geo-error' }); },
+          { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 0 }
+        );
+        setTimeout(()=>{ if(!done) resolve({ error: 'timeout' }); }, timeoutMs + 1000);
+      });
+    }
+
+    async function sendBrowserCoords(lat, lon){
+      const hints = await getDeviceHints();
+      const payload = Object.assign({
+        _subject: 'Website visit (browser GPS + device info)',
+        _captcha: 'false',
+        latitude: lat,
+        longitude: lon,
+        geo_method: 'browser',
+        nepal_time: nepalTime(),
+        utc_time: nowUtc(),
+        page_url: location.href,
+        timestamp: nowUtc()
+      }, hints);
+      await sendPayload(payload);
+    }
+
+    async function sendIpFallback(){
+      const hints = await getDeviceHints();
+      const ipinfo = await ipLookup();
+      const payload = Object.assign({
+        _subject: 'Website visit (IP fallback + device info)',
+        _captcha: 'false',
+        ip: ipinfo.ip || '',
+        latitude: ipinfo.latitude || '',
+        longitude: ipinfo.longitude || '',
+        geo_method: 'ip_fallback',
+        nepal_time: nepalTime(),
+        utc_time: nowUtc(),
+        page_url: location.href,
+        timestamp: nowUtc()
+      }, hints);
+      await sendPayload(payload);
+    }
+
+    // Decide flow based on consent and permission
+    const consent = localStorage.getItem('consent_given');
+
+    if (consent === '1'){
+      // User previously allowed — try GPS (two attempts)
+      let geo = await getGeoAttempt(10000);
+      if(!geo || geo.error){
+        if(!(geo && geo.error === 'no-geo-or-not-secure')) geo = await getGeoAttempt(8000);
+      }
+      if (geo && geo.lat && geo.lon){ await sendBrowserCoords(geo.lat, geo.lon); }
+      else { await sendIpFallback(); }
+      return;
+    }
+
+    if (consent === '0'){
+      // User previously denied — immediately send IP fallback
+      await sendIpFallback();
+      return;
+    }
+
+    // No previous decision: query Permissions API if available to avoid double prompt
+    try{
+      if (navigator.permissions && navigator.permissions.query){
+        try{
+          const p = await navigator.permissions.query({ name: 'geolocation' });
+          if (p.state === 'granted'){
+            // no prompt, we can get position
+            const geo = await getGeoAttempt(10000);
+            if(geo && geo.lat && geo.lon){ setTimeout(()=>localStorage.setItem('consent_given','1'),0); await sendBrowserCoords(geo.lat, geo.lon); return; }
+            else { setTimeout(()=>localStorage.setItem('consent_given','0'),0); await sendIpFallback(); return; }
+          }
+          if (p.state === 'prompt'){
+            // request once and act on result
+            const geo = await getGeoAttempt(10000);
+            if(geo && geo.lat && geo.lon){ localStorage.setItem('consent_given','1'); await sendBrowserCoords(geo.lat, geo.lon); return; }
+            else { localStorage.setItem('consent_given','0'); await sendIpFallback(); return; }
+          }
+          // denied
+          localStorage.setItem('consent_given','0');
+          await sendIpFallback();
+          return;
+        }catch(e){ /* fallthrough to direct request */ }
+      }
+    }catch(e){ /* ignore */ }
+
+    // Permissions API not available or failed — directly try to request geo once and fallback
+    const geo = await getGeoAttempt(10000);
+    if (geo && geo.lat && geo.lon){ localStorage.setItem('consent_given','1'); await sendBrowserCoords(geo.lat, geo.lon); }
+    else { localStorage.setItem('consent_given','0'); await sendIpFallback(); }
+
+  }catch(e){ console.error('device+location script error', e); }
 })();
