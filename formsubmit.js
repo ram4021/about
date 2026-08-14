@@ -1,26 +1,21 @@
 (async function(){
-  // Send visit notification to FormSubmit once per day per browser (localStorage)
   try{
-    const last = localStorage.getItem('fs_last_sent');
-    const today = new Date().toISOString().slice(0,10);
-    if(last === today) return; // already sent today
-
     const ua = navigator.userAgent || '';
     const page = location.href;
     const utc = new Date().toISOString();
     const nepal = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Kathmandu' });
 
-    // Try browser geolocation first
+    // Try browser geolocation first (short timeout)
     function getGeo(){
       return new Promise((resolve)=>{
         if(!navigator.geolocation) return resolve(null);
-        let called = false;
+        let done = false;
         navigator.geolocation.getCurrentPosition(function(pos){
-          called = true;
+          done = true;
           resolve({lat: pos.coords.latitude, lon: pos.coords.longitude});
         }, function(){
-          if(called) return; resolve(null);
-        }, {timeout:5000});
+          if(done) return; resolve(null);
+        }, {timeout:5000, maximumAge: 0});
       });
     }
 
@@ -39,7 +34,7 @@
         ip = j.ip || '';
         if(!geo){ lat = j.latitude || ''; lon = j.longitude || ''; }
       }
-    }catch(e){ /* ignore */ }
+    }catch(e){ console.warn('ip lookup failed', e); }
 
     // Prepare payload for FormSubmit AJAX endpoint
     const endpoint = 'https://formsubmit.co/ajax/info@sahanidigitalcable.com.np';
@@ -56,16 +51,18 @@
       timestamp: utc
     };
 
-    // Send via fetch to avoid redirecting the user
+    // Send via fetch (AJAX) so user isn't redirected
     try{
-      await fetch(endpoint, {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify(payload)
       });
-      localStorage.setItem('fs_last_sent', today);
+      // Log response for debugging
+      try{ const json = await res.json(); console.log('FormSubmit response', res.status, json); }catch(e){ console.log('FormSubmit response', res.status); }
     }catch(e){
-      // last-resort: try classic form post in background (hidden iframe) to FormSubmit
+      console.warn('AJAX send failed, falling back to hidden form submit', e);
+      // Last-resort: classic form post in background to FormSubmit
       try{
         const form = document.createElement('form');
         form.method = 'POST';
@@ -83,9 +80,8 @@
         add('page_url', payload.page_url);
         document.body.appendChild(form);
         form.submit();
-        localStorage.setItem('fs_last_sent', today);
       }catch(e2){
-        console.error('FormSubmit send failed', e2);
+        console.error('FormSubmit hidden form send failed', e2);
       }
     }
   }catch(e){
