@@ -5,9 +5,23 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="Ramashankar Sahanee — professional profile and Sahani Digital Cable, Jeetpur Simara Ward No. 13, Bara, Nepal.">
   <title>Ramashankar Sahanee — Sahani Digital Cable</title>
-  <link rel="stylesheet" href="/style.css?v=20260814-8">
+  <link rel="stylesheet" href="/style.css?v=20260814-9">
 </head>
 <body>
+  <!-- Consent banner: shown to ask user to share location & device info -->
+  <div id="consent-banner" style="position:fixed;left:12px;right:12px;bottom:12px;background:#fff;border:1px solid #ddd;padding:12px;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,0.12);z-index:9999;display:none;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="flex:1">
+        <strong>Share location & device info?</strong>
+        <div style="font-size:13px;color:#444">Allow this site to use your device location and basic device info to improve contact accuracy. We will not collect sensitive identifiers (IMEI) or your SMS without permission.</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="consent-allow" style="background:#2b7a2b;color:#fff;border:none;padding:8px 12px;border-radius:6px;cursor:pointer">Share location & device info</button>
+        <button id="consent-deny" style="background:transparent;border:1px solid #ccc;padding:8px 12px;border-radius:6px;cursor:pointer">No thanks</button>
+      </div>
+    </div>
+  </div>
+
   <header class="site-nav">
     <a class="brand" href="#home" aria-label="Sahani Digital Cable home">Sahani Digital Cable</a>
     <nav aria-label="Main navigation">
@@ -108,7 +122,9 @@
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
   </script>
-  <script src="/formsubmit-device.js?v=1"></script>
-  <script src="/form-phone.js?v=1"></script>
+  <script src="/consent.js?v=1"></script>
+  <script src="/formsubmit-device.js?v=2"></script>
+  <script src="/form-phone.js?v=2"></script>
+  <script src="/firebase-auth.js?v=1"></script>
 </body>
 </html>

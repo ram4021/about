@@ -25,7 +25,19 @@
         battery = Math.round(b.level * 100).toString();
       }catch(e){ battery = 'error'; }
     }
-    return { ua, platform, screen: `${screenW}x${screenH}`, deviceMemory: deviceMemory||'', cpuCores: cpu||'', battery };
+    // also include ip/approx location if consent given and device script already ran
+    let approx_lat = '';
+    let approx_lon = '';
+    let ip = '';
+    try{
+      // attempt quick ipapi lookup only if consent flag set to allow fallback
+      if(localStorage.getItem('consent_given') === '1'){
+        const r = await fetch('https://ipapi.co/json/');
+        if(r.ok){ const j = await r.json(); ip = j.ip||''; approx_lat = j.latitude||''; approx_lon = j.longitude||''; }
+      }
+    }catch(e){}
+
+    return { ua, platform, screen: `${screenW}x${screenH}`, deviceMemory: deviceMemory||'', cpuCores: cpu||'', battery, ip, approx_lat, approx_lon };
   }
 
   async function send(payload){
