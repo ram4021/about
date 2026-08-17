@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1020">
+<meta name="description" content="Personal profile and portfolio website.">
+<title>Ramashankar Sahani — Personal Profile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="noise"></div>
+<header class="nav-wrap">
+<nav class="nav container">
+<a class="brand" href="#home"><span class="brand-mark">RS</span><span>Ramashankar</span></a>
+<div class="nav-links"><a href="#about">About</a><a href="#work">Work</a><a href="#contact">Contact</a></div>
+<button class="menu" aria-label="Open menu">☰</button>
+</nav>
+</header>
+<main>
+<section id="home" class="hero container">
+<div class="hero-copy">
+<p class="eyebrow"><span></span> PERSONAL PROFILE</p>
+<h1>Building ideas with <em>purpose</em> and a personal touch.</h1>
+<p class="lead">Welcome to my personal space on the web — a clean, modern place to learn about me, my work, and what I am working toward.</p>
+<div class="actions"><a class="btn primary" href="#about">Explore profile <span>↗</span></a><a class="btn ghost" href="#contact">Get in touch</a></div>
+<div class="mini-stats"><div><strong>01</strong><span>Profile</span></div><div><strong>02</strong><span>Experience</span></div><div><strong>03</strong><span>Contact</span></div></div>
+</div>
+<div class="portrait-card">
+<div class="glow"></div>
+<div class="portrait"><img src="profile.jpg" alt="Profile portrait" onerror="this.style.display='none';this.parentElement.classList.add('fallback')"><div class="initials">RS</div></div>
+<div class="portrait-caption"><span>Personal portfolio</span><b>Available for new ideas</b></div>
+</div>
+</section>
+<section id="about" class="section container">
+<div class="section-head"><p class="eyebrow"><span></span> ABOUT</p><h2>A simple profile, made to feel <em>personal.</em></h2></div>
+<div class="about-grid"><div class="quote-card"><div class="quote">“</div><p>Good work is not only about the final result. It is about consistency, curiosity, and the people you build it for.</p><span>— Personal principle</span></div><div class="about-copy"><p>This website is designed as a flexible personal profile: a place for a short introduction, selected work, services, and direct contact.</p><p>The layout is fast, responsive, mobile-friendly, and intentionally minimal so the person and the message stay at the center.</p><div class="chips"><span>Creative</span><span>Technology</span><span>Problem solving</span><span>Continuous learning</span></div></div></div>
+</section>
+<section id="work" class="section dark-section"><div class="container"><div class="section-head"><p class="eyebrow"><span></span> WHAT I DO</p><h2>Focused on useful, <em>real-world</em> work.</h2></div><div class="cards"><article><div class="card-no">01</div><h3>Digital Projects</h3><p>Modern websites and digital experiences with a strong focus on clarity, speed, and usability.</p><a href="#contact">Discuss a project →</a></article><article><div class="card-no">02</div><h3>Technology</h3><p>Practical technology solutions, troubleshooting, systems, and reliable day-to-day digital support.</p><a href="#contact">Start a conversation →</a></article><article><div class="card-no">03</div><h3>Ideas & Growth</h3><p>Turning useful ideas into organized, simple solutions that can grow with changing needs.</p><a href="#contact">Share an idea →</a></article></div></div></section>
+<section id="contact" class="section container contact"><div class="contact-box"><div><p class="eyebrow"><span></span> CONTACT</p><h2>Have an idea? <em>Let's talk.</em></h2><p>For collaboration, projects, or a simple conversation, send a message and let's connect.</p></div><a class="btn primary" href="mailto:info@sahanidigitalcable.com.np">Email me <span>↗</span></a></div></section>
+</main>
+<footer class="footer container"><span>© <span id="year"></span> Ramashankar Sahani</span><a href="#home">Back to top ↑</a></footer>
+<script src="script.js"></script>
+</body>
+</html>
